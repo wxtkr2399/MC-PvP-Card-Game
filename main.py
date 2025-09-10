@@ -25,7 +25,7 @@ VERSION = "0.4.0"
 ALLOW_COMMAND = True
 EXIT_ON_ALL_HUMAN_DEAD = True
 WAIT_FOR_AI_THINKING = True
-ENABLE_AI_4 = True
+ENABLE_AI_4 = False
 DEBUG = True
 
 if WAIT_FOR_AI_THINKING:
@@ -276,7 +276,7 @@ class BedDefence:
         defence (str): 防御类型
         times (int): 防御次数
     """
-    def __init__(self, name: str, defence: str, times: int = 1, can_fend_explosive: bool = False) -> None:
+    def __init__(self, name: str, defence: str, times: int) -> None:
         """初始化床防御装备
         
         Args:
@@ -287,11 +287,13 @@ class BedDefence:
         self.name: str = name
         self.defence: str = defence
         self.times: int = times
-        self.can_fend_explosive: bool = can_fend_explosive
 
     def can_be_destroyed(self, tool: Card) -> bool:
-        ...
-
+        if (destory := tool.usage()[1]) == DESTORY_EXPLOSIVE and (defence := self.defence) != DEFENCE_EXPLOSIVE:
+            return True
+        if destory in (defence, DEFENCE_NONE):
+            return True
+        return False
 
     def destory_by(self, tool: Card) -> None:
         if self.can_be_destroyed(tool):
@@ -358,11 +360,9 @@ class Health:
         # 处理防御装备破坏
         self._check_defense_break(damage)
         if damage.type == DAMAGE_EXPLOSIVE:
+            self.parent_class.bed_defence.peek().destory_by(self.using.peek())
             if self.parent_class.bed_defence.is_empty():
                 self.parent_class.bedded = False
-                self.parent_class.bed_defence = Stack()
-            else:
-                self.parent_class.bed_defence.peek().destory_by(self.using.peek())
         
         if self.health <= 0:
             self._handle_death()
@@ -540,7 +540,7 @@ class Player:
         self.AI_level: int = AI_level
         self.game: "Game" | None = None
         self.bedded: bool = False
-        self.bed_defence: Stack[BedDefence] = Stack()
+        self.bed_defence: Stack[Defence] = []
         self.delay_attack_this_turn: list[tuple[Card, Player]] = []
         logger.debug(f"Player \"{self.name}\" created (AI level: {AI_level})")
 
@@ -615,8 +615,8 @@ class Player:
             self.effects.append(Effect("Health Boost", 5, 2, self))
             self.health += 3
         
-        logger.debug(f"{self.name} used card: {self.using.peek().name}")
         self.using.pop()
+        logger.debug(f"{self.name} used card: {self.using.peek().name}")
 
     def _handle_potion_use(self) -> None:
         """处理药水使用"""
@@ -630,8 +630,8 @@ class Player:
             else:
                 self.effects.append(Effect(effect_name, 2, 1, self))
 
-            logger.debug(f"{self.name} used card: {self.using.peek().name}")
             self.using.pop()
+            logger.debug(f"{self.name} used card: {self.using.peek().name}")
 
     def _attack_player(self, target: "Player", immediate: bool = False) -> None:
         """攻击其他玩家的内部实现
@@ -665,7 +665,7 @@ class Player:
             target.bedded = False
         else:
             defence = target.bed_defence[0]
-            defence.destroyed_by(self.using.peek())
+            defence.destory_by(self.using.peek())
                 
 
     def be_attacked(self, card: Card, attacker: "Player") -> None:
@@ -1355,7 +1355,7 @@ class Game:
             target = self._handle_target_selection(player, card)
             if target is None:
                 return
-            player._attack_player(target)
+            player._use_card(target)
 
             if messages.get("defence_break"):
                 print(messages["defence_break"])

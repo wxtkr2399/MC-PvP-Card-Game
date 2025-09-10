@@ -1,0 +1,20 @@
+{
+    "card":{
+        "Wooden Sword": "WoSw",
+        "Iron Sword": "IrSw",
+        "Diamond Sword": "DiSw",
+        "Netherite Sword": "NeSw",
+        "Wooden Axe": "WoAx",
+        "Iron Axe": "IrAx",
+        "Diamond Axe": "DiAx",
+        "Netherite Axe": "NeAx",
+        "TNT": "TNT_",
+        "Apple": "Appl",
+        "Potion of Healing": "PHea",
+        "Potion of Power": "PPow",
+        "Shield": "Shid",
+        "Golden Apple": "GoAp",
+        "Enchanted Golden Apple": "EGAp",
+        "Bed": "Bed_"
+    }
+}

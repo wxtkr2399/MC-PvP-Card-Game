@@ -1,0 +1,86 @@
+2025-08-28 12:33:05,996 - DEBUG - main:1404 - Game starting
+2025-08-28 12:33:05,997 - DEBUG - main:46 - 成功加载语言数据
+2025-08-28 12:33:05,997 - DEBUG - main:976 - Card pool initialized
+2025-08-28 12:33:05,997 - DEBUG - main:1059 - Game initialized
+2025-08-28 12:33:05,997 - DEBUG - main:484 - Player "Cindy" created (AI level: 0)
+2025-08-28 12:33:05,997 - DEBUG - main:484 - Player "Zoe" created (AI level: 0)
+2025-08-28 12:33:05,997 - DEBUG - main:1071 - Added player: Cindy
+2025-08-28 12:33:05,997 - DEBUG - main:1071 - Added player: Zoe
+2025-08-28 12:33:05,997 - DEBUG - main:1355 - Starting game
+2025-08-28 12:33:05,997 - DEBUG - main:1132 - 游戏开始！
+2025-08-28 12:33:05,998 - DEBUG - main:1136 - 卡牌池: 木剑 x5, 铁剑 x4, 钻石剑 x2, 下界合金剑 x1, 木斧 x4, 铁斧 x3, 钻石斧 x2, 下界合金斧 x1, TNT x3, 苹果 x4, 金苹果 x2, 附魔金苹果 x1, 治疗药水 x2, 力量药水 x1, 盾牌 x3, 床 x1, Trident x3, TNT Minecart x3, Potion of Immediate Harm x2
+2025-08-28 12:33:05,998 - DEBUG - main:1140 - 玩家: Cindy, Zoe
+2025-08-28 12:33:05,998 - DEBUG - main:1011 - Drew card: TNT Minecart, Netherite Axe, Wooden Sword, Diamond Sword, Diamond Sword
+2025-08-28 12:33:05,998 - DEBUG - main:511 - Cindy received card: TNT Minecart
+2025-08-28 12:33:05,998 - DEBUG - main:511 - Cindy received card: Netherite Axe
+2025-08-28 12:33:05,998 - DEBUG - main:511 - Cindy received card: Wooden Sword
+2025-08-28 12:33:05,998 - DEBUG - main:511 - Cindy received card: Diamond Sword
+2025-08-28 12:33:05,998 - DEBUG - main:511 - Cindy received card: Diamond Sword
+2025-08-28 12:33:05,999 - DEBUG - main:1011 - Drew card: Trident, Diamond Axe, Iron Axe, Potion of Immediate Harm, TNT Minecart
+2025-08-28 12:33:05,999 - DEBUG - main:511 - Zoe received card: Trident
+2025-08-28 12:33:05,999 - DEBUG - main:511 - Zoe received card: Diamond Axe
+2025-08-28 12:33:05,999 - DEBUG - main:511 - Zoe received card: Iron Axe
+2025-08-28 12:33:05,999 - DEBUG - main:511 - Zoe received card: Potion of Immediate Harm
+2025-08-28 12:33:05,999 - DEBUG - main:511 - Zoe received card: TNT Minecart
+2025-08-28 12:33:05,999 - DEBUG - main:1248 - Cindy的回合
+2025-08-28 12:33:05,999 - DEBUG - main:1154 - 生命值: 5 HP
+2025-08-28 12:33:05,999 - DEBUG - main:1168 - 床状态: 无
+2025-08-28 12:33:06,000 - DEBUG - main:1291 - 卡牌: 1: TNT Minecart, 2: 下界合金斧, 3: 木剑, 4: 钻石剑, 5: 钻石剑
+2025-08-28 12:33:09,552 - DEBUG - main:1202 - Cindy selected card: TNT Minecart
+2025-08-28 12:33:09,552 - DEBUG - main:528 - Cindy selected card: TNT Minecart
+2025-08-28 12:33:09,553 - DEBUG - main:1224 - 可攻击玩家: 1: Zoe
+2025-08-28 12:33:10,712 - DEBUG - main:1232 - Cindy使用TNT Minecart攻击Zoe
+2025-08-28 12:33:10,713 - DEBUG - main:1248 - Zoe的回合
+2025-08-28 12:33:10,713 - DEBUG - main:1154 - 生命值: 5 HP
+2025-08-28 12:33:10,713 - DEBUG - main:1168 - 床状态: 无
+2025-08-28 12:33:10,713 - DEBUG - main:1291 - 卡牌: 1: Trident, 2: 钻石斧, 3: 铁斧, 4: Potion of Immediate Harm, 5: TNT Minecart
+2025-08-28 12:33:14,545 - DEBUG - main:1202 - Zoe selected card: Trident
+2025-08-28 12:33:14,545 - DEBUG - main:528 - Zoe selected card: Trident
+2025-08-28 12:33:14,545 - DEBUG - main:1224 - 可攻击玩家: 1: Cindy
+2025-08-28 12:33:15,643 - DEBUG - main:1232 - Zoe使用Trident攻击Cindy
+2025-08-28 12:33:15,643 - DEBUG - main:583 - Zoe attacking Cindy with Trident
+2025-08-28 12:33:15,644 - DEBUG - main:305 - Cindy took 3 physical damage from Trident, now has 2 HP
+2025-08-28 12:33:15,644 - DEBUG - main:1123 - Processing after-turn effects for all players
+2025-08-28 12:33:15,644 - DEBUG - main:497 - Cindy processing after-turn effects
+2025-08-28 12:33:15,644 - DEBUG - main:497 - Zoe processing after-turn effects
+2025-08-28 12:33:15,644 - DEBUG - main:1248 - Cindy的回合
+2025-08-28 12:33:15,644 - DEBUG - main:1154 - 生命值: 2 HP
+2025-08-28 12:33:15,644 - DEBUG - main:1168 - 床状态: 无
+2025-08-28 12:33:15,644 - DEBUG - main:1291 - 卡牌: 1: 下界合金斧, 2: 木剑, 3: 钻石剑, 4: 钻石剑, 5: Damaged Trident
+2025-08-28 12:33:20,848 - DEBUG - main:1190 - Cindy drew 2 cards
+2025-08-28 12:33:20,848 - DEBUG - main:1011 - Drew card: TNT Minecart, Potion of Immediate Harm
+2025-08-28 12:33:20,848 - DEBUG - main:511 - Cindy received card: TNT Minecart
+2025-08-28 12:33:20,848 - DEBUG - main:511 - Cindy received card: Potion of Immediate Harm
+2025-08-28 12:33:20,848 - DEBUG - main:1195 - Cindy抽了2张牌: TNT Minecart, Potion of Immediate Harm
+2025-08-28 12:33:20,848 - DEBUG - main:1248 - Zoe的回合
+2025-08-28 12:33:20,849 - DEBUG - main:1154 - 生命值: 5 HP
+2025-08-28 12:33:20,849 - DEBUG - main:1168 - 床状态: 无
+2025-08-28 12:33:20,849 - DEBUG - main:1291 - 卡牌: 1: 钻石斧, 2: 铁斧, 3: Potion of Immediate Harm, 4: TNT Minecart
+2025-08-28 12:33:26,664 - DEBUG - main:1190 - Zoe drew 2 cards
+2025-08-28 12:33:26,665 - DEBUG - main:1011 - Drew card: Apple, Golden Apple
+2025-08-28 12:33:26,665 - DEBUG - main:511 - Zoe received card: Apple
+2025-08-28 12:33:26,665 - DEBUG - main:511 - Zoe received card: Golden Apple
+2025-08-28 12:33:26,665 - DEBUG - main:1195 - Zoe抽了2张牌: 苹果, 金苹果
+2025-08-28 12:33:26,665 - DEBUG - main:1123 - Processing after-turn effects for all players
+2025-08-28 12:33:26,665 - DEBUG - main:497 - Cindy processing after-turn effects
+2025-08-28 12:33:26,665 - DEBUG - main:497 - Zoe processing after-turn effects
+2025-08-28 12:33:26,665 - DEBUG - main:1248 - Cindy的回合
+2025-08-28 12:33:26,666 - DEBUG - main:1154 - 生命值: 2 HP
+2025-08-28 12:33:26,666 - DEBUG - main:1168 - 床状态: 无
+2025-08-28 12:33:26,666 - DEBUG - main:1291 - 卡牌: 1: 下界合金斧, 2: 木剑, 3: 钻石剑, 4: 钻石剑, 5: Damaged Trident, 6: TNT Minecart, 7: Potion of Immediate Harm
+2025-08-28 12:33:31,268 - DEBUG - main:1202 - Cindy selected card: Diamond Sword
+2025-08-28 12:33:31,268 - DEBUG - main:528 - Cindy selected card: Diamond Sword
+2025-08-28 12:33:31,268 - DEBUG - main:1224 - 可攻击玩家: 1: Zoe
+2025-08-28 12:33:32,437 - DEBUG - main:1232 - Cindy使用钻石剑攻击Zoe
+2025-08-28 12:33:32,437 - DEBUG - main:583 - Cindy attacking Zoe with Diamond Sword
+2025-08-28 12:33:32,437 - DEBUG - main:305 - Zoe took 3 physical damage from Diamond Sword, now has 2 HP
+2025-08-28 12:33:32,438 - DEBUG - main:528 - Cindy selected card: TNT Minecart
+2025-08-28 12:33:32,438 - DEBUG - main:583 - Cindy attacking Zoe with TNT Minecart
+2025-08-28 12:33:32,438 - DEBUG - main:305 - Zoe took 2 explosive damage from TNT Minecart, now has 0 HP
+2025-08-28 12:33:32,438 - DEBUG - main:316 - Zoe is dead
+2025-08-28 12:33:32,438 - DEBUG - main:1123 - Processing after-turn effects for all players
+2025-08-28 12:33:32,438 - DEBUG - main:497 - Zoe processing after-turn effects
+2025-08-28 12:33:32,438 - DEBUG - main:497 - Cindy processing after-turn effects
+2025-08-28 12:33:32,438 - DEBUG - main:1377 - 游戏结束！
+2025-08-28 12:33:32,439 - DEBUG - main:1381 - Cindy获胜！
+2025-08-28 12:33:32,439 - DEBUG - main:1414 - Game ended

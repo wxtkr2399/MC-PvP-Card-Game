@@ -198,18 +198,6 @@ class Card:
             "TNT Minecart": (2, DAMAGE_EXPLOSIVE),
         }[self.name]
 
-        # match self.name:
-        #     case "TNT":
-        #         return (3, DAMAGE_EXPLOSIVE)
-        #     case "Potion of Immediate Harm":
-        #         return (2, DAMAGE_MAGICAL)
-        #     case "Trident":
-        #         return (3, DAMAGE_PHYSICAL)
-        #     case "Damaged Trident":
-        #         return (1, DAMAGE_PHYSICAL)
-        #     case "TNT Minecart":
-        #         return (2, DAMAGE_EXPLOSIVE)
-
         return (0, DAMAGE_NONE)
 
     def destroy_type(self) -> str:

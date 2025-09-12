@@ -1,5 +1,6 @@
 # 兼容Python 3.11之前版本的Self类型注解
 from __future__ import annotations
+import time
 import json
 import random
 from MP2_dataType import RepeatQueue, Stack
@@ -12,7 +13,6 @@ __all__ = [
     "ALLOW_COMMAND",
     "EXIT_ON_ALL_HUMAN_DEAD",
     "WAIT_FOR_AI_THINKING",
-    # "ENABLE_AI_4",
     "DEBUG",
     "set_language",
     "Card",
@@ -20,19 +20,12 @@ __all__ = [
     "Game",
 ]
 
-VERSION = "0.4.0"
+VERSION = "0.4.2"
 
-ALLOW_COMMAND = True
-EXIT_ON_ALL_HUMAN_DEAD = True
-WAIT_FOR_AI_THINKING = True
-ENABLE_AI_4 = False
-DEBUG = True
-
-if WAIT_FOR_AI_THINKING:
-    import time
-
-if ENABLE_AI_4:
-    from chat_ai import chat_by_context
+ALLOW_COMMAND = "allow_command"
+EXIT_ON_ALL_HUMAN_DEAD = "exit_on_all_human_dead"
+WAIT_FOR_AI_THINKING = "wait_for_ai_thinking"
+DEBUG = "debug"
 
 messages = {}
 
@@ -120,7 +113,7 @@ class Card:
     Attributes:
         name: 卡牌的本地化键名
     """
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, game: Game = Game()) -> None:
         """初始化卡牌
         
         Args:
@@ -132,11 +125,11 @@ class Card:
         """
         if not isinstance(name, str):
             raise TypeError("Card name must be a string")
-        if not ALLOW_COMMAND and name[0] == "/":
+        if not game.get_setting(ALLOW_COMMAND) and name[0] == "/":
             raise ValueError("Command are not allowed")
-        name = name.strip()
-            
-        self.name: str = name
+
+        self.game = game 
+        self.name: str = name.strip()
 
     def __str__(self) -> str:
         """返回卡牌的本地化名称
@@ -190,21 +183,32 @@ class Card:
         if self.name.endswith("Axe"):
             quality = self.name[:-3].strip()
             return (weapon_damage[quality], DAMAGE_PHYSICAL)
+        if self.name.endswith("Pickaxe"):
+            quality = self.name[:-7].strip()
+            return (weapon_damage[quality] // 2, DAMAGE_PHYSICAL)
         if self.name == "/kill":
-            if ALLOW_COMMAND:
+            if self.game.get_setting(ALLOW_COMMAND):
                 return (2**64, DAMAGE_COMMAND)
 
-        match self.name:
-            case "TNT":
-                return (3, DAMAGE_EXPLOSIVE)
-            case "Potion of Immediate Harm":
-                return (2, DAMAGE_MAGICAL)
-            case "Trident":
-                return (3, DAMAGE_PHYSICAL)
-            case "Damaged Trident":
-                return (1, DAMAGE_PHYSICAL)
-            case "TNT Minecart":
-                return (2, DAMAGE_EXPLOSIVE)
+        return {
+            "TNT": (3, DAMAGE_EXPLOSIVE),
+            "Potion of Immediate Harm": (2, DAMAGE_MAGICAL),
+            "Trident": (3, DAMAGE_PHYSICAL),
+            "Damaged Trident": (1, DAMAGE_PHYSICAL),
+            "TNT Minecart": (2, DAMAGE_EXPLOSIVE),
+        }[self.name]
+
+        # match self.name:
+        #     case "TNT":
+        #         return (3, DAMAGE_EXPLOSIVE)
+        #     case "Potion of Immediate Harm":
+        #         return (2, DAMAGE_MAGICAL)
+        #     case "Trident":
+        #         return (3, DAMAGE_PHYSICAL)
+        #     case "Damaged Trident":
+        #         return (1, DAMAGE_PHYSICAL)
+        #     case "TNT Minecart":
+        #         return (2, DAMAGE_EXPLOSIVE)
 
         return (0, DAMAGE_NONE)
 
@@ -276,7 +280,7 @@ class BedDefence:
         defence (str): 防御类型
         times (int): 防御次数
     """
-    def __init__(self, name: str, defence: str, times: int) -> None:
+    def __init__(self, name: str, defence: str, times: int = 1, can_fend_explosive: bool = False) -> None:
         """初始化床防御装备
         
         Args:
@@ -287,13 +291,21 @@ class BedDefence:
         self.name: str = name
         self.defence: str = defence
         self.times: int = times
+        self.can_fend_explosive: bool = can_fend_explosive
 
     def can_be_destroyed(self, tool: Card) -> bool:
-        if (destory := tool.usage()[1]) == DESTORY_EXPLOSIVE and (defence := self.defence) != DEFENCE_EXPLOSIVE:
+        """判断装备是否可以被工具破坏
+        
+        Args:
+            tool: 用于破坏的工具卡牌
+            
+        Returns:
+            bool: 如果装备可以被工具破坏返回True，否则False
+        """
+        if self.can_fend_explosive and tool.destroy_type() == DESTORY_EXPLOSIVE:
             return True
-        if destory in (defence, DEFENCE_NONE):
-            return True
-        return False
+        return tool.destroy_type() == self.defence and self.times > 0
+
 
     def destory_by(self, tool: Card) -> None:
         if self.can_be_destroyed(tool):
@@ -360,9 +372,11 @@ class Health:
         # 处理防御装备破坏
         self._check_defense_break(damage)
         if damage.type == DAMAGE_EXPLOSIVE:
-            self.parent_class.bed_defence.peek().destory_by(self.using.peek())
             if self.parent_class.bed_defence.is_empty():
                 self.parent_class.bedded = False
+                self.parent_class.bed_defence = Stack()
+            else:
+                self.parent_class.bed_defence.peek().destory_by(self.using.peek())
         
         if self.health <= 0:
             self._handle_death()
@@ -535,12 +549,12 @@ class Player:
         self.using: Stack[Card] = Stack()
         self.effects: list[Effect] = []
         self.power: int = 0  # 增加玩家的攻击力
-        if not 0 <= AI_level <= 3 + ENABLE_AI_4:
-            raise ValueError(f"AI level must be between 0 and {3 + ENABLE_AI_4}")
+        if not 0 <= AI_level <= 3:
+            raise ValueError("AI level must be between 0 and 3")
         self.AI_level: int = AI_level
         self.game: "Game" | None = None
         self.bedded: bool = False
-        self.bed_defence: Stack[Defence] = []
+        self.bed_defence: Stack[BedDefence] = Stack()
         self.delay_attack_this_turn: list[tuple[Card, Player]] = []
         logger.debug(f"Player \"{self.name}\" created (AI level: {AI_level})")
 
@@ -582,7 +596,7 @@ class Player:
             self.cards.append(self.using.peek())
             logger.debug(f"{self.name} put back previous card: {self.using.pop().name}")
             
-        if card in self.cards or cheat and ALLOW_COMMAND:
+        if card in self.cards or cheat and game.get_setting(ALLOW_COMMAND):
             if card in self.cards and not cheat:
                 self.cards.remove(card)
             self.using.push(card)
@@ -615,8 +629,8 @@ class Player:
             self.effects.append(Effect("Health Boost", 5, 2, self))
             self.health += 3
         
-        self.using.pop()
         logger.debug(f"{self.name} used card: {self.using.peek().name}")
+        self.using.pop()
 
     def _handle_potion_use(self) -> None:
         """处理药水使用"""
@@ -630,8 +644,8 @@ class Player:
             else:
                 self.effects.append(Effect(effect_name, 2, 1, self))
 
-            self.using.pop()
             logger.debug(f"{self.name} used card: {self.using.peek().name}")
+            self.using.pop()
 
     def _attack_player(self, target: "Player", immediate: bool = False) -> None:
         """攻击其他玩家的内部实现
@@ -665,7 +679,7 @@ class Player:
             target.bedded = False
         else:
             defence = target.bed_defence[0]
-            defence.destory_by(self.using.peek())
+            defence.destroyed_by(self.using.peek())
                 
 
     def be_attacked(self, card: Card, attacker: "Player") -> None:
@@ -676,7 +690,7 @@ class Player:
             attacker: 攻击者对象
         """
         if card.name == "Trident":
-            self.cards.append(Card("Damaged Trident"))
+            self.cards.append(Card("Damaged Trident", self.game))
 
         damage_value, damage_type = card.usage()
         if damage_value > 0:
@@ -904,56 +918,10 @@ class Player:
             return True
         return False
 
-    def _ai_level_4_action(self, other_players: list["Player"]) -> bool:
-        """AI等级4的行为：智能决策"""
-        # 构建上下文
-        context = [
-            {"role": "system", "content": "你是一个游戏AI，你的任务是根据游戏状态和卡牌效果，智能决策下一张卡牌的使用。"},
-            {"role": "format_notice", "content": "请以以下格式回答:{\"card\": card_index, \"target\": target_name}.如果无需目标,省略\"target\".请勿回答任何额外内容!"},
-            {"role": "state", "content": f"当前游戏状态：{self.game.info()}"},
-            {"role": "info", "content": f"卡牌: {self.cards}, 玩家列表:{self.game.players_in_order}"}
-        ]
-
-        # 调用模型
-        response = chat_by_context(context)
-        logger.debug(f"AI response: {response}")
-        try:
-            response = json.loads(response)
-        except json.JSONDecodeError:
-            logger.error(f"Invalid JSON response: {response}")
-            return False
-        
-        # 解析响应
-        if "card" not in response:
-            logger.error("AI response missing 'card' field")
-            return False
-        
-        card_index = response["card"]
-        if not isinstance(card_index, int) or card_index < 0 or card_index > len(self.cards):
-            logger.error(f"Invalid card index in AI response: {card_index}")
-            return False
-        
-        card = self.cards[card_index - 1]
-        self._use_card(card)
-
-        if "target" in response:
-            target_name = response["target"]
-            if target_name not in [p.name for p in other_players]:
-                logger.error(f"Invalid target name in AI response: {target_name}")
-                return False
-            target = next(p for p in other_players if p.name == target_name)
-            self._attack_player(target)
-            action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
-            logger.debug(action_msg)
-            print(action_msg)
-            return True
-
-        return False
-
     def AI_action(self, other_players):
         if self.ai_level == 0:
             return
-        if WAIT_FOR_AI_THINKING:
+        if self.game.get_setting(WAIT_FOR_AI_THINKING):
             time.sleep(random.random(1.0, 2.5))
         method_name = f"_ai_level_{self.AI_level}_action"
         if hasattr(self, method_name):
@@ -991,39 +959,45 @@ class CardPool:
         cards (dict[Card, int]): 卡牌列表及其数量
     """
 
-    default: dict[Card, int] = {
-        Card("Wooden Sword"): 5,
-        Card("Iron Sword"): 4, 
-        Card("Diamond Sword"): 2, 
-        Card("Netherite Sword"): 1, 
-        Card("Wooden Axe"): 4, 
-        Card("Iron Axe"): 3, 
-        Card("Diamond Axe"): 2, 
-        Card("Netherite Axe"): 1, 
-        Card("TNT"): 3, 
-        Card("Apple"): 4, 
-        Card("Golden Apple"): 2,
-        Card("Enchanted Golden Apple"): 1,
-        Card("Potion of Healing"): 2,
-        Card("Potion of Power"): 1,
-        Card("Shield"): 3,
-        Card("Bed"): 1,
-        Card("Trident"): 3,
-        Card("TNT Minecart"): 3,
-        Card("Potion of Immediate Harm"): 2,
+    _default = lambda game: {
+        Card("Wooden Sword", game): 5,
+        Card("Iron Sword", game): 4, 
+        Card("Diamond Sword", game): 2, 
+        Card("Netherite Sword", game): 1, 
+        Card("Wooden Axe", game): 4, 
+        Card("Iron Axe", game): 3, 
+        Card("Diamond Axe", game): 2, 
+        Card("Netherite Axe", game): 1, 
+        Card("TNT", game): 3, 
+        Card("Apple", game): 4, 
+        Card("Golden Apple", game): 2,
+        Card("Enchanted Golden Apple", game): 1,
+        Card("Potion of Healing", game): 2,
+        Card("Potion of Power", game): 1,
+        Card("Shield", game): 3,
+        Card("Bed", game): 1,
+        Card("Trident", game): 3,
+        Card("TNT Minecart", game): 3,
+        Card("Potion of Immediate Harm", game): 2,
+        Card("Wooden Pickaxe", game): 5,
+        Card("Iron Pickaxe", game): 4,
+        Card("Diamond Pickaxe", game): 2,
+        Card("Netherite Pickaxe", game): 1,
     }
 
-    def __init__(self, cards: dict[Card, int] = default.copy()) -> None:
+    def __init__(self, cards: dict[Card, int] | None = None) -> None:
         """初始化卡牌池
         
         Args:
             cards: 卡牌列表及其数量
         """
+        if cards is None:
+            cards = self._default(game)
         self.cards: dict[Card, int] = cards
         logger.debug("Card pool initialized")
 
     def reset(self) -> None:
-        self.cards = CardPool.default.copy()
+        self.cards = self._default(game)
         logger.debug("Card pool reset to default")
 
     def add_card(self, card: Card, count: int = 1) -> None:
@@ -1088,12 +1062,13 @@ class CardPool:
 class Game:
     """游戏主类，负责管理游戏状态和流程"""
     
-    def __init__(self, players: list[Player] | None = []) -> None:
+    def __init__(self, players: list[Player] | None = [], **setting: int) -> None:
         """
         初始化游戏
         
         Args:
             players: 参与游戏的玩家列表
+            setting: 游戏设置
         """
         self.players: RepeatQueue[Player] = RepeatQueue(players)
         self.current_player_index: int = 0
@@ -1105,7 +1080,19 @@ class Game:
         self.card_pool: CardPool = CardPool()
         self.players_in_order: list[Player] = []
         self.delay_attack: list[tuple[Player, Card, int]] = []
+        self.setting = setting
         logger.debug("Game initialized")
+
+    def get_setting(self, key: str) -> int:
+        """获取游戏设置
+        
+        Args:
+            key: 设置键名
+        
+        Returns:
+            对应设置值
+        """
+        return self.setting[key] if key in self.setting else 0
 
     def add_player(self, *players: Player) -> None:
         """添加玩家到游戏
@@ -1355,7 +1342,7 @@ class Game:
             target = self._handle_target_selection(player, card)
             if target is None:
                 return
-            player._use_card(target)
+            player._attack_player(target)
 
             if messages.get("defence_break"):
                 print(messages["defence_break"])
@@ -1406,7 +1393,7 @@ class Game:
         self._setup_game()
         
         while len(self.players) > 1:
-            if DEBUG:
+            if self.get_setting(DEBUG):
                 print(self.delay_attack)
 
             player = self.players.peek()
@@ -1419,7 +1406,7 @@ class Game:
             if self._is_turn_finished():
                 self.after_turn()
 
-            if EXIT_ON_ALL_HUMAN_DEAD and self._check_human_dead():
+            if self.get_setting(EXIT_ON_ALL_HUMAN_DEAD) and self._check_human_dead():
                 break
         else:
             game_over_msg = lang("message", "Game over!")

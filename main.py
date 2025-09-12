@@ -131,7 +131,7 @@ class Card:
             from main import Game  # 延迟导入
             game = Game()
 
-        if not game.get_setting(ALLOW_COMMAND) and name[0] == "/":
+        if name[0] == "/" and not game.get_setting(ALLOW_COMMAND):
             raise ValueError("Command are not allowed")
 
         self.game = game 

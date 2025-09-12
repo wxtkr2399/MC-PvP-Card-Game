@@ -113,7 +113,7 @@ class Card:
     Attributes:
         name: 卡牌的本地化键名
     """
-    def __init__(self, name: str, game: Game = Game()) -> None:
+    def __init__(self, name: str, game: Game = None) -> None:
         """初始化卡牌
         
         Args:
@@ -125,6 +125,12 @@ class Card:
         """
         if not isinstance(name, str):
             raise TypeError("Card name must be a string")
+
+        # 处理game为None的情况
+        if game is None:
+            from main import Game  # 延迟导入
+            game = Game()
+
         if not game.get_setting(ALLOW_COMMAND) and name[0] == "/":
             raise ValueError("Command are not allowed")
 
@@ -947,7 +953,7 @@ class CardPool:
         cards (dict[Card, int]): 卡牌列表及其数量
     """
 
-    _default = lambda game: {
+    _default = lambda _, game: {
         Card("Wooden Sword", game): 5,
         Card("Iron Sword", game): 4, 
         Card("Diamond Sword", game): 2, 
@@ -973,12 +979,17 @@ class CardPool:
         Card("Netherite Pickaxe", game): 1,
     }
 
-    def __init__(self, cards: dict[Card, int] | None = None) -> None:
+    def __init__(self, cards: dict[Card, int] | None = None, game: Game = None) -> None:
         """初始化卡牌池
         
         Args:
             cards: 卡牌列表及其数量
         """
+        # 处理game为None的情况
+        if game is None:
+            from main import Game  # 延迟导入
+            game = Game()
+
         if cards is None:
             cards = self._default(game)
         self.cards: dict[Card, int] = cards
@@ -1065,7 +1076,7 @@ class Game:
         self._current_turn_players: set[Player] = set()
         self.started: bool = False
         self.winner: Player | None = None
-        self.card_pool: CardPool = CardPool()
+        self.card_pool: CardPool = CardPool(game=self)
         self.players_in_order: list[Player] = []
         self.delay_attack: list[tuple[Player, Card, int]] = []
         self.setting = setting

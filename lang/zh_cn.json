@@ -15,7 +15,15 @@
         "Shield": "盾牌",
         "Golden Apple": "金苹果",
         "Enchanted Golden Apple": "附魔金苹果",
-        "Bed": "床"
+        "Bed": "床",
+        "Trident": "三叉戟",
+        "Damaged Trident": "损坏的三叉戟",
+        "TNT Minecart": "TNT矿车",
+        "Potion of Instant Damage": "瞬间伤害药水",
+        "Wooden Pickaxe": "木镐",
+        "Iron Pickaxe": "铁镐",
+        "Diamond Pickaxe": "钻石镐",
+        "Netherite Pickaxe": "下界合金镐"
     },
     "message": {
         "Successfully loaded language data": "成功加载语言数据",

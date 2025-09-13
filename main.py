@@ -201,7 +201,7 @@ class Card:
 
         return {
             "TNT": (3, DAMAGE_EXPLOSIVE),
-            "Potion of Immediate Harm": (2, DAMAGE_MAGICAL),
+            "Potion of Instant Damage": (2, DAMAGE_MAGICAL),
             "Trident": (3, DAMAGE_PHYSICAL),
             "Damaged Trident": (1, DAMAGE_PHYSICAL),
             "TNT Minecart": (2, DAMAGE_EXPLOSIVE),
@@ -229,7 +229,7 @@ class Card:
         """
         return (self.name.endswith("Sword") or 
                 self.name.endswith("Axe") or 
-                self.name in ("Potion of Immediate Harm", "TNT", "TNT Minecart", "Trident", "Damaged Trident"))
+                self.name in ("Potion of Instant Damage", "TNT", "TNT Minecart", "Trident", "Damaged Trident"))
 
 def defendable(defence: str | None, damage_type: str) -> bool:
     """判断防御是否有效
@@ -514,8 +514,8 @@ class Effect:
             self.parent_class.power = self.level
             logger.debug(f"Power effect on {self.parent_class.name}: +{self.level} attack")
         elif self.name == "immediate_harm":
-            self.parent_class.health -= Damage(self.level, DAMAGE_MAGICAL, "Potion of Immediate Harm")
-            logger.debug(f"Immediate harm effect on {self.parent_class.name}: -{self.level} HP")
+            self.parent_class.health -= Damage(self.level, DAMAGE_MAGICAL, "Potion of Instant Damage")
+            logger.debug(f"Instant Damage effect on {self.parent_class.name}: -{self.level} HP")
         elif self.name in ("health boost", ):
             logger.debug(f"Health boost effect active on {self.parent_class.name} (level {self.level})")
         else:
@@ -994,7 +994,7 @@ class CardPool:
         Card("Bed", game): 1,
         Card("Trident", game): 3,
         Card("TNT Minecart", game): 3,
-        Card("Potion of Immediate Harm", game): 2,
+        Card("Potion of Instant Damage", game): 2,
         Card("Wooden Pickaxe", game): 5,
         Card("Iron Pickaxe", game): 4,
         Card("Diamond Pickaxe", game): 2,

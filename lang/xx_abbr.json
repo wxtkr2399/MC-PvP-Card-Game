@@ -15,6 +15,14 @@
         "Shield": "Shid",
         "Golden Apple": "GoAp",
         "Enchanted Golden Apple": "EGAp",
-        "Bed": "Bed_"
+        "Bed": "Bed_",
+        "Trident": "Trid",
+        "Damaged Trident": "DTri",
+        "TNT Minecart": "TNTM",
+        "Potion of Instant Damage": "PoId",
+        "Wooden Pickaxe": "WoPi",
+        "Iron Pickaxe": "IrPi",
+        "Diamond Pickaxe": "DiPi",
+        "Netherite Pickaxe": "NePi"
     }
 }

@@ -15,7 +15,15 @@
         "Shield": "#",
         "Golden Apple": "#",
         "Enchanted Golden Apple": "#",
-        "Bed": "#"
+        "Bed": "#",
+        "Trident": "#",
+        "Damaged Trident": "#",
+        "TNT Minecart": "#",
+        "Potion of Instant Damage": "#",
+        "Wooden Pickaxe": "#",
+        "Iron Pickaxe": "#",
+        "Diamond Pickaxe": "#",
+        "Netherite Pickaxe": "#"
     },
     "message": {
         "Successfully loaded language data": "...",

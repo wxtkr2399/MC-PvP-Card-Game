@@ -340,6 +340,14 @@ class Health:
         """
         return f"{self.health} HP"
 
+    def __int__(self) -> int:
+        """返回生命值的整数表示
+        
+        Returns:
+            当前生命值
+        """
+        return self.health
+
     def __isub__(self, damage: Damage) -> "Health":
         """处理伤害计算(使用-=运算符)
         
@@ -608,6 +616,8 @@ class Player:
                     self._handle_self_use_card()
                 elif self.using.peek().name.startswith("Potion of"):
                     self._handle_potion_use()
+                
+                self.game.card_pool.put_back(self.using.pop())
 
     def _handle_self_use_card(self) -> None:
         """处理对自身使用的卡牌"""
@@ -630,7 +640,6 @@ class Player:
             self.health += 3
         
         logger.debug(f"{self.name} used card: {self.using.peek().name}")
-        self.using.pop()
 
     def _handle_potion_use(self) -> None:
         """处理药水使用"""
@@ -645,7 +654,6 @@ class Player:
                 self.effects.append(Effect(effect_name, 2, 1, self))
 
             logger.debug(f"{self.name} used card: {self.using.peek().name}")
-            self.using.pop()
 
     def _attack_player(self, target: "Player", immediate: bool = False) -> None:
         """攻击其他玩家的内部实现
@@ -653,16 +661,20 @@ class Player:
         Args:
             target: 目标玩家
         """
-        if target.health <= 0:
+        if target.health.health <= 0:
             return
 
         if not self.using.is_empty():
             if self.using.peek() not in (Card("TNT Minecart"),) or immediate:
                 logger.debug(f"{self.name} attacking {target.name} with {self.using.peek().name}")
-                target.be_attacked(self.using.pop(), self)
+                target.be_attacked(self.using.peek(), self)
             else:
-                delay = {"TNT Minecart": 2}
-                self.game.delay_attack.append((target, self.using.peek(), delay[self.using.pop().name], self))
+                delay = {
+                    "TNT Minecart": 2
+                }
+                self.game.delay_attack.append((target, self.using.peek(), delay[self.using.peek().name], self))
+            
+            self.game.card_pool.put_back(self.using.pop())
         else:
             error_msg = f"{self.name} is not using any card"
             logger.error(error_msg)
@@ -866,7 +878,7 @@ class Player:
                 action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
                 logger.debug(action_msg)
                 print(action_msg)
-                return True
+            return True
         return False
     
     def _use_attack_with_kill_priority(self, other_players: list["Player"]) -> bool:
@@ -960,6 +972,7 @@ class CardPool:
     
     Attributes:
         cards (dict[Card, int]): 卡牌列表及其数量
+        discard_pile (list[Card]): 废弃卡牌堆
     """
 
     _default = lambda self, game: {
@@ -1002,10 +1015,13 @@ class CardPool:
         if cards is None:
             cards = self._default(game)
         self.cards: dict[Card, int] = cards
+        self.discard_pile: list[Card] = []  # 废弃卡牌堆
         logger.debug("Card pool initialized")
 
     def reset(self) -> None:
-        self.cards = self._default(game)
+        """重置卡牌池到初始状态"""
+        self.cards = self._default(self.game)
+        self.discard_pile = []
         logger.debug("Card pool reset to default")
 
     def add_card(self, card: Card, count: int = 1) -> None:
@@ -1021,23 +1037,56 @@ class CardPool:
             self.cards[card] = count
         logger.debug(f"Added {count}x {card.name} to card pool")
 
-    def draw_card(self, amount: int = 1) -> list[Card]:
-        """从卡牌池中随机抽取一张卡牌
+    def put_back(self, card: Card) -> None:
+        """将卡牌放入废弃牌堆
         
+        Args:
+            card: 要放入废弃牌堆的卡牌
+        """
+        self.discard_pile.append(card)
+        logger.debug(f"Put {card.name} into discard pile")
+
+    def draw_card(self, amount: int = 1) -> list[Card]:
+        """从卡牌池中随机抽取卡牌
+        
+        Args:
+            amount: 要抽取的卡牌数量，默认为1
+            
         Returns:
-            随机抽取的卡牌对象
+            抽取的卡牌列表
         """
         chosen: list[Card] = []
-        if len(self.cards) < amount:
+        
+        # 如果牌库中的卡牌数量不足，将废弃牌堆洗牌后加入牌库
+        total_cards = sum(self.cards.values())
+        if total_cards < amount and self.discard_pile:
+            logger.debug("Shuffling discard pile back into draw deck")
+            # 将废弃牌堆洗牌后加入牌库
+            random.shuffle(self.discard_pile)
+            for card in self.discard_pile:
+                if card in self.cards:
+                    self.cards[card] += 1
+                else:
+                    self.cards[card] = 1
+            self.discard_pile = []
+            logger.debug(f"Added {len(self.discard_pile)} cards from discard pile to draw deck")
+        
+        # 如果牌库仍然不足，重置牌库
+        total_cards = sum(self.cards.values())
+        if total_cards < amount:
             self.reset()
+            
+        # 抽取卡牌
         for _ in range(amount):
-            card, count = random.choice(list(self.cards.items()))
-            if count > 1:
-                self.cards[card] -= 1
-            else:
+            # 随机选择一张卡牌
+            card = random.choice(list(self.cards.keys()))
+            # 减少该卡牌的数量
+            self.cards[card] -= 1
+            if self.cards[card] == 0:
                 del self.cards[card]
             chosen.append(card)
-        logger.debug(f"Drew card: {', '.join([c.name for c in chosen])}")
+            
+        logger.debug(f"Drew {amount} cards: {', '.join([c.name for c in chosen])}")
         return chosen
 
     def __str__(self) -> str:
@@ -1046,7 +1095,9 @@ class CardPool:
         Returns:
             卡牌名称及数量的字符串
         """
-        return ", ".join(f"{str(card)} x{count}" for card, count in self.cards.items())
+        card_str = ", ".join(f"{str(card)} x{count}" for card, count in self.cards.items())
+        discard_str = f", Discard: {len(self.discard_pile)} cards"
+        return card_str + discard_str
     
     def __add__(self, other: CardPool) -> CardPool:
         """合并两个卡牌池
@@ -1057,11 +1108,14 @@ class CardPool:
         Returns:
             合并后的卡牌池
         """
-        new_pool = CardPool()
+        new_pool = CardPool(game=self.game)
         for card, count in self.cards.items():
             new_pool.add_card(card, count)
         for card, count in other.cards.items():
             new_pool.add_card(card, count)
+        # 合并废弃牌堆
+        new_pool.discard_pile.extend(self.discard_pile)
+        new_pool.discard_pile.extend(other.discard_pile)
         logger.debug("Merged two card pools")
         return new_pool
 

@@ -20,7 +20,7 @@ __all__ = [
     "Game",
 ]
 
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 
 ALLOW_COMMAND = "allow_command"
 EXIT_ON_ALL_HUMAN_DEAD = "exit_on_all_human_dead"
@@ -175,7 +175,9 @@ class Card:
         Returns:
             tuple: (伤害值, 伤害类型)
                   伤害值为0表示无伤害效果，类型为DAMAGE_NONE
+                  伤害值为-1表示秒杀，类型为DAMAGE_COMMAND
         """
+
         weapon_damage = {
             "Wooden": 1,
             "Iron": 2,
@@ -192,9 +194,10 @@ class Card:
         if self.name.endswith("Pickaxe"):
             quality = self.name[:-7].strip()
             return (weapon_damage[quality] // 2, DAMAGE_PHYSICAL)
-        if self.name == "/kill":
-            if self.game.get_setting(ALLOW_COMMAND):
-                return (2**64, DAMAGE_COMMAND)
+        if self.name[0] == "/" and self.game.get_setting(ALLOW_COMMAND):
+            return {
+                "/kill": (-1, DAMAGE_COMMAND),
+            }.get(self.name, (0, DAMAGE_NONE))
 
         return {
             "TNT": (3, DAMAGE_EXPLOSIVE),
@@ -202,9 +205,7 @@ class Card:
             "Trident": (3, DAMAGE_PHYSICAL),
             "Damaged Trident": (1, DAMAGE_PHYSICAL),
             "TNT Minecart": (2, DAMAGE_EXPLOSIVE),
-        }[self.name]
-
-        return (0, DAMAGE_NONE)
+        }.get(self.name, (0, DAMAGE_NONE))
 
     def destroy_type(self) -> str:
         """获取卡牌的破坏类型
@@ -274,7 +275,7 @@ class BedDefence:
         defence (str): 防御类型
         times (int): 防御次数
     """
-    def __init__(self, name: str, defence: str, times: int = 1, can_fend_explosive: bool = False) -> None:
+    def __init__(self, name: str, defence: str, times: int = 1, can_fend_explosive: bool = False, parent_class: "Player" = None) -> None:
         """初始化床防御装备
         
         Args:
@@ -286,6 +287,7 @@ class BedDefence:
         self.defence: str = defence
         self.times: int = times
         self.can_fend_explosive: bool = can_fend_explosive
+        self.parent_class: "Player" = parent_class
 
     def can_be_destroyed(self, tool: Card) -> bool:
         """判断装备是否可以被工具破坏
@@ -353,8 +355,12 @@ class Health:
         if not isinstance(damage, Damage):
             raise TypeError(f"Damage must be a Damage object, not {type(damage)}")
 
-        if damage.damage <= 0:
+        if damage.damage < 0 and damage.type != DAMAGE_COMMAND:
             raise ValueError("Damage value must be positive")
+
+        if damage.type == DAMAGE_COMMAND and damage.damage == -1:
+            self.health = 0
+            return self
 
         if self._handle_defense(damage):
             logger.debug(f"{self.parent_class.name}'s defense blocked {damage.item} damage")
@@ -370,7 +376,7 @@ class Health:
                 self.parent_class.bedded = False
                 self.parent_class.bed_defence = Stack()
             else:
-                self.parent_class.bed_defence.peek().destory_by(self.using.peek())
+                self.parent_class.bed_defence.peek().destory_by(damage.item)
         
         if self.health <= 0:
             self._handle_death()
@@ -590,14 +596,14 @@ class Player:
             self.cards.append(self.using.peek())
             logger.debug(f"{self.name} put back previous card: {self.using.pop().name}")
             
-        if card in self.cards or cheat and game.get_setting(ALLOW_COMMAND):
+        if card in self.cards or cheat and self.game.get_setting(ALLOW_COMMAND):
             if card in self.cards and not cheat:
                 self.cards.remove(card)
             self.using.push(card)
             logger.debug(f"{self.name} selected card: {self.using.peek().name}")
             
             # 处理不需要目标的卡牌
-            if not card.need_target:
+            if not card.need_target():
                 if self.using.peek().name in ("Shield", "Bed") or self.using.peek().name.endswith("Apple"):
                     self._handle_self_use_card()
                 elif self.using.peek().name.startswith("Potion of"):
@@ -647,6 +653,9 @@ class Player:
         Args:
             target: 目标玩家
         """
+        if target.health <= 0:
+            return
+
         if not self.using.is_empty():
             if self.using.peek() not in (Card("TNT Minecart"),) or immediate:
                 logger.debug(f"{self.name} attacking {target.name} with {self.using.peek().name}")
@@ -913,10 +922,10 @@ class Player:
         return False
 
     def AI_action(self, other_players):
-        if self.ai_level == 0:
+        if self.AI_level == 0:
             return
         if self.game.get_setting(WAIT_FOR_AI_THINKING):
-            time.sleep(random.random(1.0, 2.5))
+            time.sleep(random.uniform(1.0, 2.5))
         method_name = f"_ai_level_{self.AI_level}_action"
         if hasattr(self, method_name):
             method = getattr(self, method_name)
@@ -953,7 +962,7 @@ class CardPool:
         cards (dict[Card, int]): 卡牌列表及其数量
     """
 
-    _default = lambda _, game: {
+    _default = lambda self, game: {
         Card("Wooden Sword", game): 5,
         Card("Iron Sword", game): 4, 
         Card("Diamond Sword", game): 2, 
@@ -1061,7 +1070,7 @@ class CardPool:
 class Game:
     """游戏主类，负责管理游戏状态和流程"""
     
-    def __init__(self, players: list[Player] | None = [], **setting: int) -> None:
+    def __init__(self, players: list[Player] | None = [], *setting_bool: str, **setting_int: int) -> None:
         """
         初始化游戏
         
@@ -1079,7 +1088,8 @@ class Game:
         self.card_pool: CardPool = CardPool(game=self)
         self.players_in_order: list[Player] = []
         self.delay_attack: list[tuple[Player, Card, int]] = []
-        self.setting = setting
+        self.setting_int = setting_int
+        self.setting_bool = setting_bool
         logger.debug("Game initialized")
 
     def get_setting(self, key: str) -> int:
@@ -1091,7 +1101,11 @@ class Game:
         Returns:
             对应设置值
         """
-        return self.setting[key] if key in self.setting else 0
+        if key in self.setting_int:
+            return self.setting_int[key]
+        if key in self.setting_bool:
+            return 1
+        return 0
 
     def add_player(self, *players: Player) -> None:
         """添加玩家到游戏
@@ -1293,7 +1307,7 @@ class Game:
             messages.setdefault("death", "")
             messages.setdefault("defence_break", "")
 
-            player.AI_action()
+            player.AI_action([p for p in self.players_in_order if p != player])
 
             if messages["defence_break"]:
                 print(messages["defence_break"])
@@ -1441,6 +1455,7 @@ def main():
 
     game = Game()
     game.add_player(*(Player("") for _ in range(2)))
+    game.add_player(*(Player("", 3) for _ in range(2)))
 
     for _ in range(0):
         game.card_pool += game.card_pool

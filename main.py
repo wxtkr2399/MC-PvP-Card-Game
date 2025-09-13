@@ -20,7 +20,7 @@ __all__ = [
     "Game",
 ]
 
-VERSION = "0.4.3"
+VERSION = "0.4.4"
 
 ALLOW_COMMAND = "allow_command"
 EXIT_ON_ALL_HUMAN_DEAD = "exit_on_all_human_dead"
@@ -34,11 +34,13 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 language = "en_us"
 lang_data: dict[str, str] = {}
-def set_language(language_: str) -> None:
+
+def set_language(language_: str, reload: bool = False) -> None:
     """设置语言
     
     Args:
         language_: 语言代码
+        reload: 是否重新加载语言数据
     """
     global language, lang_data
     language = language_
@@ -47,7 +49,10 @@ def set_language(language_: str) -> None:
         # 构建语言文件的绝对路径
         lang_path = os.path.join(script_dir, "lang", f"{language}.json")
         with open(lang_path, "r", encoding="utf-8") as f:
-            lang_data = json.load(f)
+            if reload:
+                lang_data = json.load(f)
+            else:
+                lang_data.update(json.load(f))
             msg = lang("message", "Successfully loaded language data")
             logger.debug(msg)
     except Exception as e:
@@ -1096,7 +1101,7 @@ class CardPool:
             卡牌名称及数量的字符串
         """
         card_str = ", ".join(f"{str(card)} x{count}" for card, count in self.cards.items())
-        discard_str = f", Discard: {len(self.discard_pile)} cards"
+        discard_str = lang("message", "Discard: {} cards", len(self.discard_pile))
         return card_str + discard_str
     
     def __add__(self, other: CardPool) -> CardPool:
@@ -1506,6 +1511,7 @@ def main():
     # 初始化日志
     logger.debug("Game starting")
     set_language("zh_cn")
+    set_language("xx_abbr")
 
     game = Game()
     game.add_player(*(Player("") for _ in range(2)))

@@ -53,7 +53,7 @@
         "{} is died": "{}死亡",
         "{} relived with a bed": "{}用床复活了",
         "Game exited for no human alive!": "没有存活的人类玩家，游戏退出",
-        "{player} drew {count} cards: {cards}": "{player}抽了{count}张牌: {cards}"
-
+        "{player} drew {count} cards: {cards}": "{player}抽了{count}张牌: {cards}",
+        "Discard: {} cards": "弃牌堆: {}张"
     }
 }

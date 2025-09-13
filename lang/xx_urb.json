@@ -53,7 +53,7 @@
         "{} is died": "{}...",
         "{} relived with a bed": "{}...",
         "Game exited for no human alive!": "...",
-        "{player} drew {count} cards: {cards}": "{player}...{count}...{cards}"
-
+        "{player} drew {count} cards: {cards}": "{player}...{count}...{cards}",
+        "Discard: {} cards": "...: {}"
     }
 }

@@ -139,6 +139,14 @@ class Stack(Queue[T]):
         else:
             return self.items[-1]
 
+    def __str__(self) -> str:
+        """返回栈的字符串表示
+        
+        Returns:
+            栈的字符串表示
+        """
+        return str(self.items)
+
     def push(self, item: T) -> None:
         """向栈顶添加元素
         

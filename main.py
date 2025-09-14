@@ -21,7 +21,7 @@ __all__ = [
     "Game",
 ]
 
-VERSION = "0.4.5"
+VERSION = "0.5.0"
 
 # 游戏设置(bool)
 ALLOW_COMMAND = "allow_command"
@@ -564,6 +564,19 @@ class Player:
         
         Args:
             name: 玩家名称
+
+        Attributes:
+            name (str): 玩家名称
+            health (Health): 玩家生命值状态
+            cards (list[Card]): 玩家持有的卡牌列表
+            using (Stack[Card]): 当前正在使用的卡牌
+            effects (list[Effect]): 玩家当前生效的效果列表
+            power (int): 玩家当前攻击力
+            AI_level (int): 玩家AI等级
+            game (Game): 玩家所属游戏对象
+            bedded (bool): 玩家是否有床
+            bed_defence (Stack[BedDefence]): 玩家床的防御装备
+            delay_attack_this_turn (list[tuple[Card, Player]]): 玩家这回合延迟攻击的卡牌列表
         """
         if name == None or name == "":
             name = random.choice(names).strip()
@@ -636,7 +649,10 @@ class Player:
                 elif self.using.peek().name.startswith("Potion of"):
                     self._handle_potion_use()
                 
+            try:
                 self.game.card_pool.put_back(self.using.pop())
+            except:
+                pass
 
     def _handle_self_use_card(self) -> None:
         """处理对自身使用的卡牌"""
@@ -713,7 +729,7 @@ class Player:
             target.bedded = False
         else:
             defence = target.bed_defence[0]
-            defence.destroyed_by(self.using.peek())
+            defence.destroy_by(self.using.peek())
                 
 
     def be_attacked(self, card: Card, attacker: "Player") -> None:
@@ -1594,8 +1610,8 @@ def main():
     set_language("zh_cn")
 
     game = Game(EXIT_ON_ALL_HUMAN_DEAD, MAX_HEALTH=7)
-    game.add_player(*(Player("") for _ in range(1)))
-    game.add_player(*(Player("", 3) for _ in range(3)))
+    game.add_player(*(Player("") for _ in range(2)))
+    # game.add_player(*(Player("", 3) for _ in range(0)))
 
     for _ in range(0):
         game.card_pool += game.card_pool
@@ -1631,16 +1647,18 @@ def test():
     player2 = Player("p2")
     
     player1.bedded = True
+    player1.bed_defence.push(BedDefence("test", DEFENCE_STONE, parent_class=player1))
 
-    kill = Card("/kill")
-    print(kill.usage())
+    player2.cards.append(Card("Wooden Pickaxe"))
+    player2.cards.append(Card("Wooden Pickaxe"))
 
-    player2.add_card(kill)
+    player2._use_card(player2.cards[0])
+    player2._try_destroy_bed(player1)
+    print(player1.bed_defence)
 
-    player2(kill)
-    player2(player1)
-
-    print(player1.health.health)
+    player2._use_card(player2.cards[0])
+    player2._try_destroy_bed(player1)
+    print(player1.bedded)
 
 if __name__ == "__main__":
     main()

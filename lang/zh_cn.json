@@ -32,13 +32,14 @@
         "Card pool: {}": "卡牌池: {}",
         "Players: {}": "玩家: {}",
         "Cards: {}": "卡牌: {}",
+        "Available Cards: {}": "可用卡牌: {}",
         "Health: {} HP": "生命值: {} HP",
         "Effects: {}": "效果: {}",
         "Effects: None": "效果: 无",
         "Bed state: be protected with {}": "床状态: 被{}保护",
         "Bed state: Unbedded": "床状态: 无",
         "Bed state: Bedded": "床状态: 无保护",
-        "Enter card index to use (0 to draw 2 cards): ": "请输入要使用的卡牌编号 (输入0抽2张牌): ",
+        "Enter card index to use: ": "请输入要使用的卡牌编号: ",
         "{player} attacks {target} with {card}": "{player}使用{card}攻击{target}",
         "{player} used {card}": "{player}使用了{card}",
         "{player} did nothing": "{player}没有行动",
@@ -55,5 +56,10 @@
         "Game exited for no human alive!": "没有存活的人类玩家，游戏退出",
         "{player} drew {count} cards: {cards}": "{player}抽了{count}张牌: {cards}",
         "Discard: {} cards": "弃牌堆: {}张"
+    },
+    "actions": {
+        "attack/use": "攻击/使用",
+        "draw 2 cards": "抽2张牌",
+        "destroy bed": "破坏床"
     }
 }

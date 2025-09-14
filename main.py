@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 import json
 import random
+from typing import Callable
 from MP2_dataType import RepeatQueue, Stack
 import os
 
@@ -20,12 +21,17 @@ __all__ = [
     "Game",
 ]
 
-VERSION = "0.4.4"
+VERSION = "0.4.5"
 
+# 游戏设置(bool)
 ALLOW_COMMAND = "allow_command"
 EXIT_ON_ALL_HUMAN_DEAD = "exit_on_all_human_dead"
 WAIT_FOR_AI_THINKING = "wait_for_ai_thinking"
 DEBUG = "debug"
+
+# 游戏设置(int)
+START_HEALTH = "start_health"
+MAX_HEALTH = "max_health"
 
 messages = {}
 
@@ -35,11 +41,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 language = "en_us"
 lang_data: dict[str, str] = {}
 
-def set_language(language_: str, reload: bool = False) -> None:
+def set_language(language_: str, part: list[str] = [], reload: bool = False) -> None:
     """设置语言
     
     Args:
         language_: 语言代码
+        part: 语言部分
         reload: 是否重新加载语言数据
     """
     global language, lang_data
@@ -49,10 +56,16 @@ def set_language(language_: str, reload: bool = False) -> None:
         # 构建语言文件的绝对路径
         lang_path = os.path.join(script_dir, "lang", f"{language}.json")
         with open(lang_path, "r", encoding="utf-8") as f:
-            if reload:
-                lang_data = json.load(f)
+            loading_ = json.load(f)
+            if part:
+                for p in part:
+                    loading = loading_.get(p, {})
             else:
-                lang_data.update(json.load(f))
+                loading = loading_
+            if reload:
+                lang_data = loading
+            else:
+                lang_data.update(loading)
             msg = lang("message", "Successfully loaded language data")
             logger.debug(msg)
     except Exception as e:
@@ -90,7 +103,7 @@ def lang(type: str, key: str, *args, **kwargs) -> str:
             return text.format(*args, **kwargs)
         except (KeyError, IndexError) as e:
             # 如果格式化失败，返回原始文本
-            # print(f"Warning: Failed to format string '{text}' with args {args} and kwargs {kwargs}")
+            logger.warning(f"Warning: Failed to format string '{text}' with args {args} and kwargs {kwargs}")
             return text
     return text
 
@@ -100,10 +113,10 @@ DAMAGE_MAGICAL = "magical"
 DAMAGE_COMMAND = "command"
 DAMAGE_NONE = "none"
 
-DESTORY_EXPLOSIVE = "explosive"
-DESTORY_AXE = "wood"
-DESTORY_PICKAXE = "stone"
-DESTORY_NONE = "none"
+DESTROY_EXPLOSIVE = "explosive"
+DESTROY_AXE = "wood"
+DESTROY_PICKAXE = "stone"
+DESTROY_NONE = "none"
 
 DEFENCE_STONE = "stone"
 DEFENCE_WOOD = "wood"
@@ -219,12 +232,12 @@ class Card:
             str: 卡牌的破坏类型
         """
         if self.usage()[1] == DAMAGE_EXPLOSIVE:
-            return DESTORY_EXPLOSIVE
+            return DESTROY_EXPLOSIVE
         if self.name.endswith("Axe"):
-            return DESTORY_AXE
+            return DESTROY_AXE
         if self.name.endswith("Pickaxe"):
-            return DESTORY_PICKAXE
-        return DESTORY_NONE
+            return DESTROY_PICKAXE
+        return DESTROY_NONE
     
     def need_target(self) -> bool:
         """判断卡牌是否需要目标
@@ -303,12 +316,12 @@ class BedDefence:
         Returns:
             bool: 如果装备可以被工具破坏返回True，否则False
         """
-        if self.can_fend_explosive and tool.destroy_type() == DESTORY_EXPLOSIVE:
+        if self.can_fend_explosive and tool.destroy_type() == DESTROY_EXPLOSIVE:
             return True
         return tool.destroy_type() == self.defence and self.times > 0
 
 
-    def destory_by(self, tool: Card) -> None:
+    def destroy_by(self, tool: Card) -> None:
         if self.can_be_destroyed(tool):
             self.times -= 1
             logger.debug(f"{self.name} destroyed by {tool.name}")
@@ -333,6 +346,7 @@ class Health:
             player: 所属玩家对象
         """
         self.health: int = health
+        self.max_health: int = health
         self.defence: str | None = None
         self.defence_times: int = 0
         self.parent_class: Player = player
@@ -389,7 +403,7 @@ class Health:
                 self.parent_class.bedded = False
                 self.parent_class.bed_defence = Stack()
             else:
-                self.parent_class.bed_defence.peek().destory_by(damage.item)
+                self.parent_class.bed_defence.peek().destroy_by(damage.item)
         
         if self.health <= 0:
             self._handle_death()
@@ -448,8 +462,8 @@ class Health:
 
         old_health = self.health
         self.health += value
-        if self.health > 5 + health_boost_level:
-            self.health = 5 + health_boost_level
+        if self.health > self.max_health + health_boost_level:
+            self.health = self.max_health + health_boost_level
         logger.debug(f"{self.parent_class.name} healed {self.health - old_health} HP, now has {self.health} HP")
         return self
         
@@ -518,7 +532,7 @@ class Effect:
         elif self.name == "power":
             self.parent_class.power = self.level
             logger.debug(f"Power effect on {self.parent_class.name}: +{self.level} attack")
-        elif self.name == "immediate_harm":
+        elif self.name == "instant damage":
             self.parent_class.health -= Damage(self.level, DAMAGE_MAGICAL, "Potion of Instant Damage")
             logger.debug(f"Instant Damage effect on {self.parent_class.name}: -{self.level} HP")
         elif self.name in ("health boost", ):
@@ -609,7 +623,7 @@ class Player:
             self.cards.append(self.using.peek())
             logger.debug(f"{self.name} put back previous card: {self.using.pop().name}")
             
-        if card in self.cards or cheat and self.game.get_setting(ALLOW_COMMAND):
+        if card in self.cards or cheat:
             if card in self.cards and not cheat:
                 self.cards.remove(card)
             self.using.push(card)
@@ -1136,7 +1150,13 @@ class Game:
         Args:
             players: 参与游戏的玩家列表
             setting: 游戏设置
+
+        Note:
+            可处理跳过玩家, 直接输入游戏设置的情况
         """
+        if isinstance(players, str):
+            setting_bool = (*setting_bool, players)
+            players = []
         self.players: RepeatQueue[Player] = RepeatQueue(players)
         self.current_player_index: int = 0
         self.is_game_over: bool = False
@@ -1173,10 +1193,19 @@ class Game:
             *players: 一个或多个玩家对象
         """
         for player in players:
+            if start_health := self.get_setting("start_health"):
+                if start_health <= 0:
+                    raise ValueError("start_health must be greater than 0")
+                player.health.health = start_health
+                player.health.max_health = start_health
+            if max_health := self.get_setting("max_health"):
+                if max_health < start_health:
+                    raise ValueError("max_health must be greater than or equal to start_health")
+                player.health.max_health = max_health
             self.players.put(player)
             self.players_in_order.append(player)
             player.game = self
-            logger.debug(f"Added player: {player.name}")
+            logger.debug(f"Added player: {player.name} with health {player.health.health}/{player.health.max_health}")
 
     def start_game(self) -> None:
         """开始游戏，初始化玩家手牌和游戏状态"""
@@ -1276,7 +1305,7 @@ class Game:
             logger.debug(bed_msg)
             print(bed_msg)
 
-    def _handle_card_selection(self, player: Player) -> Card | None:
+    def _handle_card_selection(self, player: Player, condition: Callable[[Card], bool] = lambda _: True) -> Card | None:
         """处理卡牌选择
         
         Args:
@@ -1285,6 +1314,14 @@ class Game:
         Returns:
             选择的卡牌或None
         """
+        cards = [card for card in player.cards if condition(card)]
+
+        # 本地化显示玩家手牌
+        cards_list = [f"{i}: {card}" for i, card in enumerate(cards, 1)]
+        cards_msg = lang("message", "Available Cards: {}", ", ".join(cards_list))
+        logger.debug(cards_msg)
+        print(cards_msg)
+
         if not player.cards:
             no_cards_msg = lang("message", "No cards left in {player}'s hand", player=player.name)
             logger.debug(no_cards_msg)
@@ -1293,20 +1330,10 @@ class Game:
             return None
             
         # 本地化输入提示
-        card_index = input(lang("message", "Enter card index to use (0 to draw 2 cards): "))
-        if card_index == "0":
-            logger.debug(f"{player.name} drew 2 cards")
-            drawn_cards = self.card_pool.draw_card(2)
-            player.add_card(*drawn_cards)
-            # 本地化抽牌消息
-            draw_msg = lang("message", "{player} drew {count} cards: {cards}", player=player.name, count=len(drawn_cards), cards=", ".join(str(card) for card in drawn_cards))
-            logger.debug(draw_msg)
-            print(draw_msg)
-            print()
-            return None
-            
+        card_index = input(lang("message", "Enter card index to use: "))
+
         try:
-            card = player.list_cards()[int(card_index) - 1]
+            card = cards[int(card_index) - 1]
             logger.debug(f"{player.name} selected card: {card.name}")
             return card
         except:
@@ -1315,17 +1342,18 @@ class Game:
             print(error_msg)
             raise ValueError(error_msg)
 
-    def _handle_target_selection(self, player: Player, card: Card) -> Player | None:
+    def _handle_target_selection(self, player: Player, card: Card, condition: Callable[[Player], bool] = lambda _: True) -> Player | None:
         """处理目标选择
         
         Args:
             player: 当前玩家
             card: 使用的卡牌
-            
+            condition: 目标玩家必须满足的条件
+
         Returns:
             选择的目标玩家或None
         """
-        targets = [p for p in self.players_in_order if p != player and p.health.health > 0]
+        targets = [p for p in self.players_in_order if p != player and p.health.health > 0 and condition(p)]
         # 本地化目标选择提示
         targets_list = [f"{i}: {p.name}" for i, p in enumerate(targets, 1)]
         targets_msg = lang("message", "Players to be target: {}", ", ".join(targets_list))
@@ -1380,6 +1408,24 @@ class Game:
 
         player._handle_delay_attack()
 
+    def _handle_action_choose(self, player: Player) -> str:
+        """处理玩家回合选择
+        
+        Args:
+            player: 当前回合的玩家
+        """
+        actions = ["attack/use", "draw 2 cards"]
+        for card in player.list_cards():
+            if card.destroy_type() != DESTROY_NONE:
+                actions.append("destroy bed")
+                break
+
+        print(lang("message", "Actions: "), end="")
+        for i, action in enumerate(actions, 1):
+            print(f"{i}: {lang("actions", action)}", end=", " if i < len(actions) else "\n")
+        action = input(lang("message", "Enter action index: "))
+        print()
+        return actions[int(action) - 1]
             
     def _handle_human_turn(self, player: Player) -> None:
         """处理人类玩家回合
@@ -1392,18 +1438,28 @@ class Game:
         messages.setdefault("defence_break", "")
         
         self._display_player_status(player)
-        
-        # 本地化显示玩家手牌
-        cards_list = [f"{i}: {card}" for i, card in enumerate(player.list_cards(), 1)]
-        cards_msg = lang("message", "Cards: {}", ", ".join(cards_list))
-        logger.debug(cards_msg)
-        print(cards_msg)
 
         if player.AI_level:
             return
 
+        # 本地化显示玩家手牌
+        cards_list = [f"{str(card)}" for card in player.cards]
+        cards_msg = lang("message", "Cards: {}", ", ".join(cards_list))
+        logger.debug(cards_msg)
+        print(cards_msg)
+        print()
+
+        action = self._handle_action_choose(player)
+        {
+            "attack/use": self.attack_or_use_card,
+            "draw 2 cards": self.draw_2_cards,
+            "destroy bed": self.destroy_bed,
+        }[action](player)
+
+    def attack_or_use_card(self, player: Player) -> None:
+        """攻击或使用卡牌"""
         # 处理卡牌选择
-        card = self._handle_card_selection(player)
+        card = self._handle_card_selection(player, lambda card: card.destroy_type() != DESTROY_PICKAXE)
         if card is None:
             return
             
@@ -1427,6 +1483,31 @@ class Game:
             print(card_use_msg)
 
         print()
+
+    def draw_2_cards(self, player: Player) -> None:
+        """抽2张牌"""
+        logger.debug(f"{player.name} drew 2 cards")
+        drawn_cards = self.card_pool.draw_card(2)
+        player.add_card(*drawn_cards)
+        # 本地化抽牌消息
+        draw_msg = lang("message", "{player} drew {count} cards: {cards}", player=player.name, count=len(drawn_cards), cards=", ".join(str(card) for card in drawn_cards))
+        logger.debug(draw_msg)
+        print(draw_msg)
+        print()
+        return None
+            
+
+    def destroy_bed(self, player: Player) -> None:
+        """破坏床"""
+        # 处理卡牌选择
+        card = self._handle_card_selection(player, lambda card: card.destroy_type() != DESTROY_NONE)
+        if card is None:
+            return
+
+        target = self._handle_target_selection(player, card)
+        if target is None:
+            return
+        player._try_destroy_bed(target)
 
     def _handle_delay_attack(self) -> None:
         """处理延迟攻击"""
@@ -1511,11 +1592,10 @@ def main():
     # 初始化日志
     logger.debug("Game starting")
     set_language("zh_cn")
-    set_language("xx_abbr")
 
-    game = Game()
-    game.add_player(*(Player("") for _ in range(2)))
-    game.add_player(*(Player("", 3) for _ in range(2)))
+    game = Game(EXIT_ON_ALL_HUMAN_DEAD, MAX_HEALTH=7)
+    game.add_player(*(Player("") for _ in range(1)))
+    game.add_player(*(Player("", 3) for _ in range(3)))
 
     for _ in range(0):
         game.card_pool += game.card_pool

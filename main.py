@@ -432,7 +432,7 @@ class Health:
         if self._handle_defense(damage):
             logger.debug(f"{self.parent_class.name}'s defense blocked {damage.item} damage")
             return self
-            
+                       
         # 应用伤害
         self._apply_damage(damage)
 
@@ -444,7 +444,7 @@ class Health:
                 self.parent_class.bed_defence = Stack()
             else:
                 self.parent_class.bed_defence.peek().destroy_by(damage.item)
-        
+
         if self.health <= 0:
             self._handle_death()
             

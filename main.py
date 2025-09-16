@@ -986,7 +986,6 @@ class Player:
             target = other_players[0]
             self._use_card(card)
             self._attack_player(target)
-            action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=card.name, target=target.name)
             action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=str(card), target=target.name)
             logger.debug(action_msg)
             print(action_msg)

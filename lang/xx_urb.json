@@ -60,6 +60,6 @@
     "actions": {
         "attack/use": "---",
         "draw 2 cards": "---",
-        "destroy bed": "---"
+        "destroy/defend bed": "---"
     }
 }

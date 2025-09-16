@@ -200,3 +200,138 @@ class Stack(Queue[T]):
             bool: 如果栈为空返回False，否则True
         """
         return not self.is_empty()
+
+class BetterFloat:
+    """自定义浮点数类, 使用十进制科学计数, 法用于处理浮点数的比较"""
+    def __init__(self, value: int | str, exp: int = 0) -> None:
+        if isinstance(value, str):
+            if '.' in value:
+                fractional_part = value.split('.')[1]
+                self.value = int(value.replace('.', ''))
+                self.exp = -len(fractional_part)
+            else:
+                self.value = int(value)
+                self.exp = 0
+            return
+
+        if not isinstance(value, int):
+            raise TypeError(f"value must be int, not {type(value).__name__}")
+        if not isinstance(exp, int):
+            raise TypeError(f"exp must be int, not {type(exp).__name__}")
+        self.exp: int = exp
+        self.value: int = value
+
+    def __float__(self) -> float:
+        """将自定义浮点数转换为标准浮点数
+        
+        Returns:
+            float: 转换后的浮点数
+        """
+        return 10 ** self.exp * float(self.value)
+
+    def __str__(self) -> str:
+            """返回自定义浮点数的字符串表示
+            
+            Returns:
+                str: 自定义浮点数的字符串表示
+            """
+            if self.exp < 0:
+                s = str(self.value)
+                n = -self.exp
+                
+                # 处理负数情况
+                if s[0] == '-':
+                    negative = True
+                    s = s[1:]
+                else:
+                    negative = False
+                
+                # 需要补零的情况
+                if n >= len(s):
+                    integer_part = '0'
+                    fractional_part = '0' * (n - len(s)) + s
+                else:
+                    integer_part = s[:-n] or '0'  # 如果整数部分为空，设为'0'
+                    fractional_part = s[-n:]
+                
+                # 还原负号
+                if negative:
+                    integer_part = '-' + integer_part
+                
+                # 组合结果
+                if fractional_part:
+                    return f"{integer_part}.{fractional_part}"
+                else:
+                    return integer_part
+                    
+            elif self.exp > 0:
+                return str(self.value) + '0' * self.exp
+            else:
+                return str(self.value)
+
+    def __repr__(self) -> str:
+        """返回自定义浮点数的字符串表示
+        
+        Returns:
+            str: 自定义浮点数的字符串表示
+        """
+        return f"{self.value}e{self.exp}"
+
+    def shift(self, exp: int) -> None:
+        """将浮点数的指数部分向右移动exp位
+        
+        Args:
+            exp: 移动的位数
+        """
+        if exp == 0:
+            return
+
+        self.exp += exp
+        if exp > 0:
+            self.value = int(str(self.value) + '0' * exp)
+        else:
+            try:
+                self.value = int(str(self.value)[:len(str(self.value)) + exp])
+            except ValueError:
+                self.value = 0
+
+    def __add__(self, other: "BetterFloat") -> "BetterFloat":
+        """自定义浮点数加法
+        
+        Args:
+            other: 另一个浮点数
+            
+        Returns:
+            加法结果
+        """
+        this = BetterFloat(self.value, self.exp)
+        if this.exp == other.exp:
+            this.value += other.value
+            return this
+
+        if this.exp < other.exp:
+            other.shift(other.exp - this.exp)
+        else:
+            this.shift(this.exp - other.exp)
+        this.value += other.value
+        return this
+
+    def __sub__(self, other: "BetterFloat") -> "BetterFloat":
+            """自定义浮点数减法
+            
+            Args:
+                other: 另一个浮点数
+                
+            Returns:
+                减法结果
+            """
+            other = BetterFloat(- other.value, other.exp)
+            return self + other
+
+if __name__ == "__main__":
+    a = BetterFloat(1, -1)
+    b = BetterFloat(21, -1)
+    print(a + b)
+
+    c = BetterFloat('0.2')
+    print(c + a)

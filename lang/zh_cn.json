@@ -60,6 +60,6 @@
     "actions": {
         "attack/use": "攻击/使用",
         "draw 2 cards": "抽2张牌",
-        "destroy bed": "破坏床"
+        "destroy/defend bed": "破坏/守护床"
     }
 }

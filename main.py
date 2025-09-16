@@ -35,6 +35,18 @@ MAX_HEALTH = "max_health"
 
 messages = {}
 
+DAMAGE_PHYSICAL = "physical"
+DAMAGE_EXPLOSIVE = "explosive"
+DAMAGE_MAGICAL = "magical"
+DAMAGE_COMMAND = "command"
+DAMAGE_NONE = "none"
+
+DESTROY_EXPLOSIVE = "explosive"
+DESTROY_AXE = (DEFENCE_STONE := "stone")
+DESTROY_PICKAXE = (DEFENCE_WOOD := "wood")
+DESTROY_NONE = (DEFENCE_NONE := "none")
+
+
 # 获取当前脚本所在目录
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -107,21 +119,6 @@ def lang(type: str, key: str, *args, **kwargs) -> str:
             return text
     return text
 
-DAMAGE_PHYSICAL = "physical"
-DAMAGE_EXPLOSIVE = "explosive"
-DAMAGE_MAGICAL = "magical"
-DAMAGE_COMMAND = "command"
-DAMAGE_NONE = "none"
-
-DESTROY_EXPLOSIVE = "explosive"
-DESTROY_AXE = "wood"
-DESTROY_PICKAXE = "stone"
-DESTROY_NONE = "none"
-
-DEFENCE_STONE = "stone"
-DEFENCE_WOOD = "wood"
-DEFENCE_EXPLOSIVE = "explosive"
-DEFENCE_NONE = "none"
 
 chosen_names = []
 
@@ -225,19 +222,40 @@ class Card:
             "TNT Minecart": (2, DAMAGE_EXPLOSIVE),
         }.get(self.name, (0, DAMAGE_NONE))
 
-    def destroy_type(self) -> str:
-        """获取卡牌的破坏类型
+    def destroy_defense_type(self) -> tuple[str, int, bool]:
+        """获取卡牌的破坏/防御类型
         
         Returns:
-            str: 卡牌的破坏类型
+            tuple: (破坏/防御类型, 破坏(<0)/防御(>0)值, 是否可防御爆炸)
         """
+        defence = {
+            "Wooden Block": (DEFENCE_WOOD, 2),
+            "Stone Block": (DEFENCE_STONE, 2),
+            "Obsidian Block": (DEFENCE_STONE, 5, True),
+            "Glass Block": (DEFENCE_NONE, 0, True),
+        }.get(self.name, (DEFENCE_NONE, 0, False))
+        if defence[1] > 0:
+            if len(defence) == 2:
+                return (*defence, False)
+            return defence
+
         if self.usage()[1] == DAMAGE_EXPLOSIVE:
-            return DESTROY_EXPLOSIVE
+            return (DESTROY_EXPLOSIVE, -self.usage()[0])
+
+        weapon_damage = {
+            "Wooden": 1,
+            "Iron": 2,
+            "Diamond": 3,
+            "Netherite": 4
+        }
+
         if self.name.endswith("Axe"):
-            return DESTROY_AXE
+            quality = self.name[:-3].strip()
+            return (DESTROY_AXE, -weapon_damage[quality])
         if self.name.endswith("Pickaxe"):
-            return DESTROY_PICKAXE
-        return DESTROY_NONE
+            quality = self.name[:-7].strip()
+            return (DESTROY_PICKAXE, -weapon_damage[quality])
+        return (DESTROY_NONE, 0)
     
     def need_target(self) -> bool:
         """判断卡牌是否需要目标
@@ -262,7 +280,7 @@ def defendable(defence: str | None, damage_type: str) -> bool:
     if not defence or damage_type == DAMAGE_COMMAND:
         return False
     if defence == "Shield":
-        return damage_type not in (DAMAGE_MAGICAL, DAMAGE_EXPLOSIVE)
+        return damage_type not in (DAMAGE_MAGICAL, )
     return False
 
 class Damage:  
@@ -285,6 +303,18 @@ class Damage:
         self.type: str = type
         self.item: str = item
 
+def BedDefenceFromCard(card: Card, owner: "Player") -> "BedDefence":
+    """从卡牌创建床防御装备
+    
+    Args:
+        card: 用于创建防御装备的卡牌
+        owner: 装备所属玩家
+        
+    Returns:
+        BedDefence: 创建的床防御装备对象
+    """
+    return BedDefence(card.name, *card.destroy_defense_type(), owner)
+
 class BedDefence:
     """表示游戏中的床防御装备
     
@@ -292,6 +322,8 @@ class BedDefence:
         name (str): 装备名称
         defence (str): 防御类型
         times (int): 防御次数
+        can_fend_explosive (bool): 是否可以防御爆炸
+        parent_class (Player): 装备所属玩家
     """
     def __init__(self, name: str, defence: str, times: int = 1, can_fend_explosive: bool = False, parent_class: "Player" = None) -> None:
         """初始化床防御装备
@@ -300,8 +332,13 @@ class BedDefence:
             name: 装备名称
             defence: 防御类型
             times: 防御次数
+            can_fend_explosive: 是否可以防御爆炸
+            parent_class: 装备所属玩家
         """
-        self.name: str = name
+        if name.endswith(" Block"):
+            self.name: str = name[:-6]
+        else:
+            self.name: str = name
         self.defence: str = defence
         self.times: int = times
         self.can_fend_explosive: bool = can_fend_explosive
@@ -316,9 +353,9 @@ class BedDefence:
         Returns:
             bool: 如果装备可以被工具破坏返回True，否则False
         """
-        if self.can_fend_explosive and tool.destroy_type() == DESTROY_EXPLOSIVE:
+        if self.can_fend_explosive and tool.destroy_defense_type() == DESTROY_EXPLOSIVE:
             return True
-        return tool.destroy_type() == self.defence and self.times > 0
+        return tool.destroy_defense_type() == self.defence and self.times > 0
 
 
     def destroy_by(self, tool: Card) -> None:
@@ -328,6 +365,9 @@ class BedDefence:
             if self.times <= 0:
                 self.parent_class.bed_defence.pop()
                 logger.debug(f"{self.name} destroyed")
+
+        def __str__(self) -> str:
+            return f"{self.name} (防御: {self.defence}, 次数: {self.times})"
 
 class Health:
     """管理玩家的生命值和防御状态
@@ -650,7 +690,8 @@ class Player:
                     self._handle_potion_use()
                 
             try:
-                self.game.card_pool.put_back(self.using.pop())
+                if not cheat:  # 只有非作弊模式才放入弃牌堆
+                    self.game.card_pool.put_back(self.using.pop())
             except:
                 pass
 
@@ -728,6 +769,10 @@ class Player:
         if not target.bed_defence:
             target.bedded = False
         else:
+            # 检查using栈是否为空
+            if self.using.is_empty():
+                logger.error(f"{self.name} tried to destroy bed but no card is being used")
+                return
             defence = target.bed_defence[0]
             defence.destroy_by(self.using.peek())
                 
@@ -763,11 +808,11 @@ class Player:
         if card.need_target() and other_players:
             target = random.choice(other_players)
             self._attack_player(target)
-            action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=card.name, target=target.name)
+            action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=str(card), target=target.name)
             logger.debug(action_msg)
             print(action_msg)
         else:
-            action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+            action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
             logger.debug(action_msg)
             print(action_msg)
 
@@ -790,7 +835,7 @@ class Player:
             if healing_cards:
                 card = random.choice(healing_cards)
                 self._use_card(card)
-                action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+                action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
                 logger.debug(action_msg)
                 print(action_msg)
                 return True
@@ -806,7 +851,7 @@ class Player:
             other_players.sort(key=lambda p: p.health.health)
             target = other_players[0]
             self._attack_player(target)
-            action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=card.name, target=target.name)
+            action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=str(card), target=target.name)
             logger.debug(action_msg)
             print(action_msg)
             return True
@@ -818,7 +863,7 @@ class Player:
         if non_attack_cards:
             card = random.choice(non_attack_cards)
             self._use_card(card)
-            action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+            action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
             logger.debug(action_msg)
             print(action_msg)
             return True
@@ -862,7 +907,7 @@ class Player:
             if enchanted_golden_apples:
                 card = random.choice(enchanted_golden_apples)
                 self._use_card(card)
-                action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+                action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
                 logger.debug(action_msg)
                 print(action_msg)
                 return True
@@ -872,7 +917,7 @@ class Player:
             if golden_apples:
                 card = random.choice(golden_apples)
                 self._use_card(card)
-                action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+                action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
                 logger.debug(action_msg)
                 print(action_msg)
                 return True
@@ -885,7 +930,7 @@ class Player:
             if enchanted_shields:
                 card = random.choice(enchanted_shields)
                 self._use_card(card)
-                action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+                action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
                 logger.debug(action_msg)
                 print(action_msg)
                 return True
@@ -897,7 +942,7 @@ class Player:
         if power_potions:
             card = random.choice(power_potions)
             self._use_card(card)
-            action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+            action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
             logger.debug(action_msg)
             print(action_msg)
             return True
@@ -910,7 +955,7 @@ class Player:
             if apples:
                 card = random.choice(apples)
                 self._use_card(card)
-                action_msg = lang("message", "{player} used {card}", player=self.name, card=card.name)
+                action_msg = lang("message", "{player} used {card}", player=self.name, card=str(card))
                 logger.debug(action_msg)
                 print(action_msg)
             return True
@@ -930,7 +975,7 @@ class Player:
                     if target.health.health <= damage:
                         self._use_card(card)
                         self._attack_player(target)
-                        action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=card.name, target=target.name)
+                        action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=str(card), target=target.name)
                         logger.debug(action_msg)
                         print(action_msg)
                         return True
@@ -942,6 +987,7 @@ class Player:
             self._use_card(card)
             self._attack_player(target)
             action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=card.name, target=target.name)
+            action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=str(card), target=target.name)
             logger.debug(action_msg)
             print(action_msg)
             return True
@@ -958,7 +1004,7 @@ class Player:
             if card.need_target() and other_players:
                 target = random.choice(other_players)
                 self._attack_player(target)
-                action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=card.name, target=target.name)
+                action_msg = lang("message", "{player} attacks {target} with {card}", player=self.name, card=str(card), target=target.name)
                 logger.debug(action_msg)
                 print(action_msg)
             elif card.need_target():  # 无可用目标时取消使用
@@ -1034,6 +1080,10 @@ class CardPool:
         Card("Iron Pickaxe", game): 4,
         Card("Diamond Pickaxe", game): 2,
         Card("Netherite Pickaxe", game): 1,
+        Card("Wooden Block", game): 4,
+        Card("Stone Block", game): 4,
+        Card("Obsidian Block", game): 1,
+        Card("Glass", game): 2,
     }
 
     def __init__(self, cards: dict[Card, int] | None = None, game: Game = None) -> None:
@@ -1070,7 +1120,7 @@ class CardPool:
             self.cards[card] += count
         else:
             self.cards[card] = count
-        logger.debug(f"Added {count}x {card.name} to card pool")
+        logger.debug(f"Added {count}x {str(card)} to card pool")
 
     def put_back(self, card: Card) -> None:
         """将卡牌放入废弃牌堆
@@ -1432,8 +1482,8 @@ class Game:
         """
         actions = ["attack/use", "draw 2 cards"]
         for card in player.list_cards():
-            if card.destroy_type() != DESTROY_NONE:
-                actions.append("destroy bed")
+            if card.destroy_defense_type() != DESTROY_NONE:
+                actions.append("destroy/defend bed")
                 break
 
         print(lang("message", "Actions: "), end="")
@@ -1469,13 +1519,13 @@ class Game:
         {
             "attack/use": self.attack_or_use_card,
             "draw 2 cards": self.draw_2_cards,
-            "destroy bed": self.destroy_bed,
+            "destroy/defend bed": self.destroy_defend_bed,
         }[action](player)
 
     def attack_or_use_card(self, player: Player) -> None:
         """攻击或使用卡牌"""
         # 处理卡牌选择
-        card = self._handle_card_selection(player, lambda card: card.destroy_type() != DESTROY_PICKAXE)
+        card = self._handle_card_selection(player, lambda card: card.destroy_defense_type() != DESTROY_PICKAXE)
         if card is None:
             return
             
@@ -1513,17 +1563,29 @@ class Game:
         return None
             
 
-    def destroy_bed(self, player: Player) -> None:
-        """破坏床"""
+    def destroy_defend_bed(self, player: Player) -> None:
+        """破坏/守护床"""
         # 处理卡牌选择
-        card = self._handle_card_selection(player, lambda card: card.destroy_type() != DESTROY_NONE)
+        card = self._handle_card_selection(player, lambda card: card.destroy_defense_type() != DESTROY_NONE)
         if card is None:
             return
 
         target = self._handle_target_selection(player, card)
         if target is None:
             return
-        player._try_destroy_bed(target)
+
+        player._use_card(card)
+
+        if card.destroy_defense_type()[1] < 0:
+            player._try_destroy_bed(target)
+        else:
+            player.bed_defence.push(BedDefenceFromCard(card, player))
+
+        # 本地化破坏床消息
+        destroy_msg = lang("message", "{player} destroyed bed of {target}", player=player.name, target=target.name)
+        logger.debug(destroy_msg)
+        print(destroy_msg)
+        print()
 
     def _handle_delay_attack(self) -> None:
         """处理延迟攻击"""
